@@ -7,43 +7,48 @@ import "./style.scss";
 
 const axios = require("axios");
 const CLIENT_ID = "bv8nmi6sgkny98n75ptkfj8hbl3t41";
-const oauthID = "zzpodhoh8fxz5gfxlcmvugsbzn2mhm";
+const oauthID = "s404nz1r9e53k3b3j0mc44mo5e5l3q";
 
-function getUserProfile(data) {
-  let userProfiles = [];
-  for (let item of data) {
+function getRawData() {
+  return new Promise(function (resolve, reject) {
     axios
-      .get(`https://api.twitch.tv/helix/users?id=${item.user_id}`, {
+      .get("https://api.twitch.tv/helix/streams?game_id=21779", {
         headers: {
           Authorization: "Bearer " + oauthID,
           "Client-Id": CLIENT_ID,
         },
       })
       .then((res) => {
-        userProfiles.push(res.data.data[0].profile_image_url);
-      })
-      .then(() => {
-        data.forEach(
-          (item, index) => (item.profile_image_url = userProfiles[index])
-        );
+        resolve(res.data.data);
       });
-  }
-  return data;
+  });
 }
 
-async function getData() {
-  const data = await axios.get(
-    "https://api.twitch.tv/helix/streams?game_id=21779",
-    {
-      headers: {
-        Authorization: "Bearer " + oauthID,
-        "Client-Id": CLIENT_ID,
-      },
+function getStreamerProfile(data) {
+  return new Promise(function (resolve, reject) {
+    let userProfiles = [];
+    let promiseArr = [];
+    for (let item of data) {
+      promiseArr.push(
+        axios
+          .get(`https://api.twitch.tv/helix/users?id=${item.user_id}`, {
+            headers: {
+              Authorization: "Bearer " + oauthID,
+              "Client-Id": CLIENT_ID,
+            },
+          })
+          .then((res) => {
+            userProfiles.push(res.data.data[0].profile_image_url);
+          })
+      );
     }
-  );
-  const newData = await getUserProfile(data.data.data);
-  console.log(newData);
-  displayData(newData);
+    Promise.all(promiseArr).then(() => {
+      data.forEach(
+        (item, index) => (item.profile_image_url = userProfiles[index])
+      );
+      resolve(data);
+    });
+  });
 }
 
 function displayData(data) {
@@ -65,4 +70,10 @@ function displayData(data) {
   $(".twitch-channel").append(dom);
 }
 
-getData();
+async function getSreamData() {
+  const rawData = await getRawData();
+  const newData = await getStreamerProfile(rawData);
+  displayData(newData);
+}
+
+getSreamData();
